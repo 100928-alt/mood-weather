@@ -99,6 +99,7 @@
     flex-shrink: 0;
   }
   .nav-back:hover, .nav-action:hover { border-color: var(--text); color: var(--text); }
+  .nav-back svg, .nav-action svg { width: 18px; height: 18px; display: block; margin: 0 auto; fill: currentColor; }
   .nav-title { font-size: 17px; font-weight: 500; text-align: center; flex: 1; }
   .nav-spacer { width: 36px; flex-shrink: 0; }
   .home-content {
@@ -430,7 +431,7 @@
 
   <div class="page" id="page-calendar">
     <div class="nav-bar">
-      <button class="nav-back" onclick="goToHome()">←</button>
+      <button class="nav-back" onclick="goToHome()" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
       <div class="nav-title">情绪日历</div>
       <div class="nav-spacer"></div>
     </div>
@@ -459,7 +460,7 @@
     <div class="mood-page-bg" id="mood-bg"></div>
     <div class="mood-page">
       <div class="nav-bar">
-        <button class="nav-back" onclick="goToCalendar()">←</button>
+        <button class="nav-back" onclick="goToCalendar()" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
         <div class="nav-title" id="mood-nav-title">记录心情</div>
         <div class="nav-spacer"></div>
       </div>
@@ -481,7 +482,7 @@
 
   <div class="page" id="page-report">
     <div class="nav-bar">
-      <button class="nav-back" onclick="goToCalendar()">←</button>
+      <button class="nav-back" onclick="goToCalendar()" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
       <div class="nav-title">月度报告</div>
       <div class="nav-spacer"></div>
     </div>
@@ -505,7 +506,7 @@
 
   <div class="page" id="page-share">
     <div class="nav-bar">
-      <button class="nav-back" onclick="goToCalendar()">←</button>
+      <button class="nav-back" onclick="goToCalendar()" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
       <div class="nav-title">分享卡片</div>
       <div class="nav-spacer"></div>
     </div>

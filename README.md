@@ -1,5 +1,3 @@
-mood-weather/
-└── index.html  
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>

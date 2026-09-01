@@ -411,7 +411,6 @@
     .mood-emoji { font-size: 30px; }
   }
 </style>
-<base target="_blank">
 </head>
 <body>
 
@@ -560,17 +559,24 @@ let selectedDateKey = null;
 let selectedMoodValue = null;
 let detailDateKey = null;
 let weatherAnimId = null;
-let shareCardSeed = 0;
 let currentShareMood = null;
 let currentShareDate = '';
 let shareCardAnimId = null;
 
 function loadData() {
-  const saved = localStorage.getItem('moodWeatherEntries_v4');
-  if (saved) entries = JSON.parse(saved);
+  try {
+    const saved = localStorage.getItem('moodWeatherEntries_v4');
+    if (saved) entries = JSON.parse(saved) || {};
+  } catch (e) {
+    entries = {};
+  }
 }
 function saveData() {
-  localStorage.setItem('moodWeatherEntries_v4', JSON.stringify(entries));
+  try {
+    localStorage.setItem('moodWeatherEntries_v4', JSON.stringify(entries));
+  } catch (e) {
+    // 隐私模式或配额溢出时静默失败，不影响页面使用
+  }
 }
 
 function showPage(id) {
@@ -736,6 +742,7 @@ function deleteMood() {
 function showDetail(key) {
   detailDateKey = key;
   const entry = entries[key];
+  if (!entry) return;
   const mood = moods.find(m => m.value === entry.mood);
   const { year, month, day } = parseKey(key);
   document.getElementById('detail-emoji').textContent = mood.emoji;
@@ -964,6 +971,7 @@ function renderCurve(monthKeys) {
   const svg = document.getElementById('curve-svg');
   const container = document.getElementById('curve-container');
   const tooltip = document.getElementById('curve-tooltip');
+  if (!svg || !container) return;
   svg.innerHTML = '';
   if (monthKeys.length < 2) {
     svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#999" font-size="13">记录少于2天，暂无曲线</text>`;
@@ -976,11 +984,16 @@ function renderCurve(monthKeys) {
   const chartW = w - padding.left - padding.right;
   const chartH = h - padding.top - padding.bottom;
 
-  const points = monthKeys.map((k, i) => {
+  const validKeys = monthKeys.filter(k => entries[k]);
+  if (validKeys.length < 2) {
+    svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#999" font-size="13">本月有效记录少于2天，暂无曲线</text>`;
+    return;
+  }
+  const points = validKeys.map((k, i) => {
     const mv = entries[k].mood;
     const mood = moods.find(x => x.value === mv);
     return {
-      x: padding.left + (i / (monthKeys.length - 1)) * chartW,
+      x: padding.left + (i / (validKeys.length - 1)) * chartW,
       y: padding.top + chartH - ((mood.score + 4) / 8) * chartH,
       score: mood.score,
       emoji: mood.emoji,
@@ -1075,7 +1088,6 @@ function stopShareAnim() {
 
 function generateShareCard(specificKey) {
   stopShareAnim();
-  shareCardSeed++;
 
   let entry, mood, dateStr, note;
   if (specificKey && entries[specificKey]) {
@@ -1105,7 +1117,10 @@ function generateShareCard(specificKey) {
 
   const input = document.getElementById('share-note-input');
   input.value = note && note !== '开始记录你的心情吧～' ? note : '';
-  input.oninput = () => { drawShareCardFrame(); };
+  // 用 once 避免每次输入都叠加监听，防止内存泄漏
+  input.removeEventListener('input', input._onInput);
+  input._onInput = () => { drawShareCardFrame(); };
+  input.addEventListener('input', input._onInput);
 
   initShareParticles(mood.value);
   drawShareCardFrame();
@@ -1215,15 +1230,26 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function drawShareCardFrame() {
+// 优化：降低分享卡片动画帧率（10fps），避免手机持续耗电发热
+let lastShareDraw = 0;
+const SHARE_FRAME_INTERVAL = 100; // ms，每帧间隔
+
+function drawShareCardFrame(timestamp) {
+  const now = timestamp || Date.now();
+  if (now - lastShareDraw < SHARE_FRAME_INTERVAL) {
+    shareCardAnimId = requestAnimationFrame(drawShareCardFrame);
+    return;
+  }
+  lastShareDraw = now;
+
   const canvas = document.getElementById('share-canvas');
+  if (!canvas) return;
   const c = canvas.getContext('2d');
   const w = 720, h = 1200;
   const mood = currentShareMood;
   const dateStr = currentShareDate;
   const customNote = document.getElementById('share-note-input').value.trim();
 
-  // 背景
   const bgColors = {
     sunny:  ['#FFF8F0', '#FFF0E0'],
     cloudy: ['#F0F4F8', '#E8EEF5'],
@@ -1239,11 +1265,9 @@ function drawShareCardFrame() {
   c.fillStyle = grd;
   c.fillRect(0, 0, w, h);
 
-  // 天气粒子动画
   updateShareParticles();
   drawShareWeather(c, w, h);
 
-  // 装饰圆
   c.fillStyle = 'rgba(255,255,255,0.35)';
   c.beginPath();
   c.arc(w - 80, 180, 200, 0, Math.PI * 2);
@@ -1253,7 +1277,6 @@ function drawShareCardFrame() {
   c.arc(100, h - 200, 150, 0, Math.PI * 2);
   c.fill();
 
-  // 小圆点装饰
   const decoColor = mood.color;
   for (let i = 0; i < 12; i++) {
     c.fillStyle = hexToRgba(decoColor, 0.1);
@@ -1262,7 +1285,6 @@ function drawShareCardFrame() {
     c.fill();
   }
 
-  // 顶部标签
   c.fillStyle = 'rgba(0,0,0,0.05)';
   roundRect(c, w/2 - 60, 40, 120, 36, 18);
   c.fill();
@@ -1272,23 +1294,19 @@ function drawShareCardFrame() {
   c.textBaseline = 'middle';
   c.fillText('情绪天气', w/2, 58);
 
-  // 大表情
   c.font = '160px sans-serif';
   c.textAlign = 'center';
   c.textBaseline = 'alphabetic';
   c.fillText(mood.emoji, w/2, 320);
 
-  // 心情标签
   c.font = 'bold 44px sans-serif';
   c.fillStyle = '#2d2d2d';
   c.fillText(`今日心情：${mood.label}`, w/2, 390);
 
-  // 日期
   c.font = '28px sans-serif';
   c.fillStyle = '#999';
   c.fillText(dateStr, w/2, 440);
 
-  // 分隔装饰线
   c.strokeStyle = hexToRgba(decoColor, 0.3);
   c.lineWidth = 2;
   c.beginPath();
@@ -1296,12 +1314,10 @@ function drawShareCardFrame() {
   c.lineTo(w - 120, 480);
   c.stroke();
 
-  // 寄语
   c.font = 'italic 32px sans-serif';
   c.fillStyle = '#555';
   wrapText(c, mood.quote, w/2, 540, 560, 44);
 
-  // 自定义备注区域
   const noteToShow = customNote || '';
   if (noteToShow) {
     c.fillStyle = 'rgba(255,255,255,0.55)';
@@ -1314,7 +1330,6 @@ function drawShareCardFrame() {
     wrapTextLeft(c, noteToShow, 100, 690, w - 200, 38);
   }
 
-  // 底部装饰
   c.textAlign = 'center';
   c.font = '22px sans-serif';
   c.fillStyle = '#bbb';
@@ -1466,16 +1481,17 @@ function wrapTextLeft(c, text, x, y, maxWidth, lineHeight) {
   });
 }
 
-function regenerateShareCard() {
-  initShareParticles(currentShareMood.value);
-}
-
 function downloadShareCard() {
   const canvas = document.getElementById('share-canvas');
+  if (!canvas) return;
+  // 暂停动画，避免下载瞬间画面抖动
+  stopShareAnim();
   const link = document.createElement('a');
   link.download = 'mood-weather-card.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
+  // 下载后恢复粒子效果
+  shareCardAnimId = requestAnimationFrame(drawShareCardFrame);
 }
 
 loadData();

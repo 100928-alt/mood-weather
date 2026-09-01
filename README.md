@@ -414,7 +414,6 @@ mood-weather/
   }
 </style>
 <base target="_blank">
-<base target="_blank">
 </head>
 <body>
 
